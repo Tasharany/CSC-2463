@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Example 4</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+</head>
+<body>
+<h1>Example 4</h1>
+<script>
+  function setup() {
+    createCanvas(450,450);
+  }
+
+  function draw() {
+    background(26,0,153);
+
+    fill(0,153,0);
+    stroke(255);
+    strokeWeight(6);
+
+    ellipse(215,215,225,225);
+    fill(255,0,0)
+
+    beginShape();
+    vertex(330,180)
+    vertex(250,180)
+    vertex(220,95)
+    vertex(180,180)
+    vertex(100,180)
+    vertex(165,235)
+    vertex(140,305)
+    vertex(215,265)
+    vertex(290,305)
+    vertex(265,235)
+    endShape(CLOSE);
+  }
+</script>
+</body>
+</html>

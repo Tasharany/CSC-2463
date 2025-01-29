@@ -1,0 +1,37 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Example 3</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+</head>
+<body>
+<h1>Example 3</h1>
+<script>
+  function setup() {
+    angleMode(DEGREES);
+    createCanvas(400, 400);
+    background("black");
+
+    noStroke();
+    fill("yellow");
+    arc(150, 200, 50, 50, 225, 135); //pac man with 90 degree mouth open. Always draws clockwise. can start with higher number.
+
+    fill("red");
+    rect(200, 200, 50, 25); //bottom half of ghost
+    ellipse(225, 200, 50, 50); //top half of ghost
+    fill("white"); //eye whites
+    ellipse(215, 195, 15, 15);
+    ellipse(235, 195, 15, 15);
+    fill("blue");//blue part of eyes
+    ellipse(235, 195, 10, 10);
+    ellipse(215, 195, 10, 10);
+  }
+</script>
+</body>
+</html>
+
+
+
+
