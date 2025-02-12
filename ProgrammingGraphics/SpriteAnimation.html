@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spelunky Character Animation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+            display: block;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Spelunky Character Animation</h1>
+<script>
+        let characters = [];
+        let spriteSheets = [];
+        const SPRITE_SIZE = 80;
+        const WALKING_FRAMES = 8;
+        const MOVE_SPEED = 5;
+
+        function preload() {
+        spriteSheets[0] = loadImage('spelunky_character1.png');
+        spriteSheets[1] = loadImage('spelunky_character2.png');
+        spriteSheets[2] = loadImage('spelunky_character3.png');
+    }
+
+        function setup() {
+        createCanvas(1100, 500);
+        characters.push(new Character(100, 50, spriteSheets[0]));
+        characters.push(new Character(500, 350, spriteSheets[1]));
+        characters.push(new Character(900, 200, spriteSheets[2]));
+    }
+
+        function draw() {
+        background(200);
+
+        let moving = false;
+        let direction = 0;
+
+        if (keyIsDown(LEFT_ARROW)) {
+        direction = -1;
+        moving = true;
+    }
+        if (keyIsDown(RIGHT_ARROW)) {
+        direction = 1;
+        moving = true;
+    }
+
+        for (let c of characters) {
+        c.update(moving, direction);
+        c.display();
+    }
+    }
+
+        class Character {
+        constructor(x, y, spriteSheet) {
+        this.x = x;
+        this.y = y;
+        this.spriteSheet = spriteSheet;
+        this.walkingFrames = [];
+        this.currentFrame = 0;
+        this.animationTimer = 0;
+        this.frameInterval = 100; // Milliseconds per frame
+        this.facingRight = true;
+
+        for (let i = 0; i < WALKING_FRAMES; i++) {
+        this.walkingFrames[i] = this.spriteSheet.get(i * SPRITE_SIZE, 0, SPRITE_SIZE, SPRITE_SIZE);
+    }
+    }
+
+        update(moving, direction) {
+        if (moving) {
+        this.x += direction * MOVE_SPEED;
+
+        this.animationTimer += deltaTime;
+        if (this.animationTimer >= this.frameInterval) {
+        this.currentFrame = (this.currentFrame + 1) % this.walkingFrames.length;
+        this.animationTimer = 0;
+    }
+
+        this.facingRight = direction > 0;
+    } else {
+        this.currentFrame = 0;
+        this.animationTimer = 0;
+    }
+
+        this.x = constrain(this.x, 0, width *SPRITE_SIZE);
+    }
+
+        display() {
+        push();
+        translate(this.x, this.y);
+
+        if (!this.facingRight) {
+        scale(-1, 1);
+        image(this.walkingFrames[this.currentFrame], -SPRITE_SIZE, 0);
+    } else {
+        image(this.walkingFrames[this.currentFrame], 0, 0);
+    }
+
+        pop();
+    }
+    }
+
+
+</script>
+</body>
+</html>
