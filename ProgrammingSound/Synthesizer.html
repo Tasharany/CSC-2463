@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Web Synthesizer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #1a1a1a;
+      color: white;
+      padding: 20px;
+    }
+
+    .controls {
+      margin: 20px;
+      padding: 20px;
+      background-color: #333;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 600px;
+    }
+
+    .slider-container {
+      margin: 10px 0;
+    }
+
+    label {
+      display: inline-block;
+      width: 120px;
+    }
+
+    .piano {
+      position: relative;
+      height: 200px;
+      width: 560px;
+      margin: 20px auto;
+    }
+
+    .white-key {
+      position: relative;
+      float: left;
+      width: 70px;
+      height: 200px;
+      background-color: white;
+      border: 1px solid #000;
+      box-sizing: border-box;
+      border-radius: 0 0 5px 5px;
+      z-index: 1;
+    }
+
+    .black-key {
+      position: absolute;
+      width: 40px;
+      height: 120px;
+      background-color: black;
+      border: 1px solid #000;
+      border-radius: 0 0 5px 5px;
+      z-index: 2;
+    }
+
+    .key-label {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .white-key .key-label {
+      color: black;
+    }
+
+    .black-key .key-label {
+      color: white;
+      bottom: 5px;
+    }
+
+    /* Position black keys */
+    .black-key.Cs { left: 45px; }  /* C# */
+    .black-key.Ds { left: 115px; } /* D# */
+    .black-key.Fs { left: 255px; } /* F# */
+    .black-key.Gs { left: 325px; } /* G# */
+    .black-key.As { left: 395px; } /* A# */
+
+    .key-active {
+      background-color: #7db0e8;
+    }
+
+    .black-key.key-active {
+      background-color: #1e90ff;
+    }
+  </style>
+</head>
+<body>
+<div class="controls">
+  <h2>Synth Controls</h2>
+  <div class="slider-container">
+    <label for="reverb">Reverb:</label>
+    <input type="range" id="reverb" min="0" max="1" step="0.1" value="0.3">
+  </div>
+  <div class="slider-container">
+    <label for="delay">Delay:</label>
+    <input type="range" id="delay" min="0" max="1" step="0.1" value="0.2">
+  </div>
+  <div class="slider-container">
+    <label for="distortion">Distortion:</label>
+    <input type="range" id="distortion" min="0" max="1" step="0.1" value="0">
+  </div>
+</div>
+
+<div class="piano">
+  <!-- White keys -->
+  <div class="white-key" data-note="C4"><div class="key-label">A</div></div>
+  <div class="white-key" data-note="D4"><div class="key-label">S</div></div>
+  <div class="white-key" data-note="E4"><div class="key-label">D</div></div>
+  <div class="white-key" data-note="F4"><div class="key-label">F</div></div>
+  <div class="white-key" data-note="G4"><div class="key-label">G</div></div>
+  <div class="white-key" data-note="A4"><div class="key-label">H</div></div>
+  <div class="white-key" data-note="B4"><div class="key-label">J</div></div>
+  <div class="white-key" data-note="C5"><div class="key-label">K</div></div>
+
+  <!-- Black keys -->
+  <div class="black-key Cs" data-note="C#4"><div class="key-label">W</div></div>
+  <div class="black-key Ds" data-note="D#4"><div class="key-label">E</div></div>
+  <div class="black-key Fs" data-note="F#4"><div class="key-label">T</div></div>
+  <div class="black-key Gs" data-note="G#4"><div class="key-label">Y</div></div>
+  <div class="black-key As" data-note="A#4"><div class="key-label">U</div></div>
+</div>
+
+<script>
+  // Initialize Tone.js
+  const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+
+  // Effects
+  const reverb = new Tone.Reverb({
+    decay: 4,
+    wet: 0.3
+  }).toDestination();
+
+  const delay = new Tone.FeedbackDelay({
+    delayTime: "8n",
+    feedback: 0.2,
+    wet: 0.2
+  }).toDestination();
+
+  const distortion = new Tone.Distortion({
+    distortion: 0.8,
+    wet: 0
+  }).toDestination();
+
+  // Connect synth to effects
+  synth.connect(reverb);
+  synth.connect(delay);
+  synth.connect(distortion);
+
+  // Note mapping
+  const keyMap = {
+    'a': 'C4',
+    'w': 'C#4',
+    's': 'D4',
+    'e': 'D#4',
+    'd': 'E4',
+    'f': 'F4',
+    't': 'F#4',
+    'g': 'G4',
+    'y': 'G#4',
+    'h': 'A4',
+    'u': 'A#4',
+    'j': 'B4',
+    'k': 'C5'
+  };
+
+  const activeNotes = new Set();
+
+  // Handle keyboard events
+  document.addEventListener('keydown', (e) => {
+    if (!activeNotes.has(e.key) && keyMap[e.key.toLowerCase()]) {
+      const note = keyMap[e.key.toLowerCase()];
+      playNote(note);
+      activeNotes.add(e.key);
+      const key = document.querySelector(`[data-note="${note}"]`);
+      if (key) key.classList.add('key-active');
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (activeNotes.has(e.key) && keyMap[e.key.toLowerCase()]) {
+      const note = keyMap[e.key.toLowerCase()];
+      stopNote(note);
+      activeNotes.delete(e.key);
+      const key = document.querySelector(`[data-note="${note}"]`);
+      if (key) key.classList.remove('key-active');
+    }
+  });
+
+  // Mouse/Touch events
+  document.querySelectorAll('.white-key, .black-key').forEach(key => {
+    let isPressed = false;
+
+    key.addEventListener('mousedown', () => {
+      if (!isPressed) {
+        const note = key.dataset.note;
+        playNote(note);
+        key.classList.add('key-active');
+        isPressed = true;
+      }
+    });
+
+    key.addEventListener('mouseup', () => {
+      if (isPressed) {
+        const note = key.dataset.note;
+        stopNote(note);
+        key.classList.remove('key-active');
+        isPressed = false;
+      }
+    });
+
+    key.addEventListener('mouseleave', () => {
+      if (isPressed) {
+        const note = key.dataset.note;
+        stopNote(note);
+        key.classList.remove('key-active');
+        isPressed = false;
+      }
+    });
+  });
+
+  function playNote(note) {
+    synth.triggerAttack(note);
+  }
+
+  function stopNote(note) {
+    synth.triggerRelease(note);
+  }
+
+  // Effect controls
+  document.getElementById('reverb').addEventListener('input', (e) => {
+    reverb.wet.value = parseFloat(e.target.value);
+  });
+
+  document.getElementById('delay').addEventListener('input', (e) => {
+    delay.wet.value = parseFloat(e.target.value);
+  });
+
+  document.getElementById('distortion').addEventListener('input', (e) => {
+    distortion.wet.value = parseFloat(e.target.value);
+  });
+
+  // Start audio context on user interaction
+  document.addEventListener('click', async () => {
+    await Tone.start();
+  });
+</script>
+</body>
+</html>
