@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Splash Sound Effect</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #canvas {
+            margin: 20px;
+            cursor: pointer;
+            border: 2px solid #444;
+        }
+        .instructions {
+            margin: 20px;
+            padding: 15px;
+            background-color: #333;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="instructions">
+    <h2>Splash</h2>
+</div>
+<canvas id="canvas" width="400" height="300"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Load diving image
+    const img = new Image();
+    img.src = 'images/diving.jpg';  // Replace with actual diving image
+
+    // Draw the image when loaded
+    img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+
+    // Initialize Tone.js
+    const noise = new Tone.Noise("white");
+    const filter = new Tone.Filter({
+        type: "bandpass",
+        frequency: 400,
+        Q: 2
+    });
+    const gainNode = new Tone.Gain(0);
+    const lfo = new Tone.LFO({
+        frequency: 10,
+        min: 300,
+        max: 1000
+    }).start();
+
+    // Connect audio nodes
+    noise.connect(filter);
+    filter.connect(gainNode);
+    gainNode.toDestination();
+    lfo.connect(filter.frequency);
+
+    // Create splash sound effect
+    function playSplashSound() {
+        // Reset and start noise
+        noise.start();
+
+        // Create envelope for gain
+        gainNode.gain.setValueAtTime(0, Tone.now());
+        gainNode.gain.linearRampToValueAtTime(0.8, Tone.now() + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, Tone.now() + 1);
+        gainNode.gain.linearRampToValueAtTime(0, Tone.now() + 1.5);
+
+        // Filter envelope
+        filter.frequency.setValueAtTime(1000, Tone.now());
+        filter.frequency.exponentialRampToValueAtTime(200, Tone.now() + 0.5);
+
+        // Stop noise after effect is done
+        setTimeout(() => {
+            noise.stop();
+        }, 1500);
+    }
+
+    // Handle click event
+    canvas.addEventListener('click', async () => {
+        // Start audio context if needed
+        await Tone.start();
+
+        // Create ripple effect on image
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        ctx.putImageData(imageData, 0, 0);
+
+        // Play sound
+        playSplashSound();
+    });
+</script>
+</body>
+</html>
