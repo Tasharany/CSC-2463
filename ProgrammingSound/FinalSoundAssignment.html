@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bug Squish with Sound</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 20px;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 5px;
+      display: block;
+      overflow-x: auto;
+    }
+    #startButton {
+      padding: 15px 30px;
+      font-size: 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+<button id="startButton">Start Game</button>
+<script>
+  let flies = [];
+  let flyGif;
+  let squishedImg;
+  const NUM_FLIES = 5;
+  const SPRITE_SIZE = 100;
+  let score = 0;
+  let timeLeft = 30;
+  let gameOver = false;
+  let lastSecond;
+  let baseSpeed = 3;
+  let gameStarted = false;
+
+  // Sound variables
+  let squishSynth;
+  let missSynth;
+  let bgMusic;
+  let gameOverSound;
+
+  function preload() {
+    flyGif = loadImage('bug.gif');
+    squishedImg = loadImage('squished.png');
+  }
+
+  function setup() {
+    createCanvas(800, 600);
+    imageMode(CENTER);
+    background(220);
+    setupAudio();
+
+    // Start button setup
+    const startButton = document.getElementById('startButton');
+    startButton.addEventListener('click', startGame);
+
+    noLoop(); // Don't start drawing until game starts
+  }
+
+  function setupAudio() {
+    // Squish sound - FM synthesis for a crunchy sound
+    squishSynth = new Tone.FMSynth({
+      harmonicity: 8,
+      modulationIndex: 20,
+      envelope: {
+        attack: 0.001,
+        decay: 0.2,
+        sustain: 0,
+        release: 0.1
+      },
+      modulation: {
+        type: "square"
+      },
+      modulationEnvelope: {
+        attack: 0.002,
+        decay: 0.2,
+        sustain: 0,
+        release: 0.2
+      }
+    }).toDestination();
+
+    // Miss sound - simple downward glissando
+    missSynth = new Tone.Synth({
+      oscillator: {
+        type: "triangle"
+      },
+      envelope: {
+        attack: 0.01,
+        decay: 0.3,
+        sustain: 0,
+        release: 0.1
+      }
+    }).toDestination();
+
+    // Background music setup
+    const reverb = new Tone.Reverb({
+      decay: 5,
+      wet: 0.5
+    }).toDestination();
+
+    bgMusic = new Tone.PolySynth().connect(reverb);
+
+    // Game over sound
+    gameOverSound = new Tone.Synth({
+      oscillator: {
+        type: "square"
+      },
+      envelope: {
+        attack: 0.01,
+        decay: 0.3,
+        sustain: 0.4,
+        release: 0.8
+      }
+    }).toDestination();
+
+    // Create a repeating background pattern
+    const pattern = new Tone.Pattern((time, note) => {
+      bgMusic.triggerAttackRelease(note, "8n", time);
+    }, ["C4", "E4", "G4", "B4"], "up");
+
+    pattern.interval = "8n";
+    pattern.start(0);
+  }
+
+  function startGame() {
+    if (!gameStarted) {
+      Tone.start();
+      document.getElementById('startButton').style.display = 'none';
+      gameStarted = true;
+
+      // Start game state
+      flies = [];
+      for (let i = 0; i < NUM_FLIES; i++) {
+        flies.push(new Fly());
+      }
+      score = 0;
+      timeLeft = 30;
+      gameOver = false;
+      lastSecond = millis();
+
+      // Start background music
+      Tone.Transport.start();
+
+      loop();
+    }
+  }
+
+  function draw() {
+    background(220);
+
+    if (!gameOver) {
+      if (millis() - lastSecond >= 1000) {
+        timeLeft--;
+        lastSecond = millis();
+
+        // Increase tempo as time runs out
+        Tone.Transport.bpm.value = 120 + (30 - timeLeft) * 2;
+      }
+    }
+
+    if (timeLeft <= 0) {
+      gameOver = true;
+      handleGameOver();
+    }
+
+    for (let fly of flies) {
+      fly.update();
+      fly.display();
+    }
+
+    displayHUD();
+  }
+
+  function handleGameOver() {
+    // Stop background music
+    Tone.Transport.stop();
+
+    // Play game over sound
+    gameOverSound.triggerAttackRelease("C3", "1n");
+  }
+
+  function displayHUD() {
+    textSize(32);
+    fill(0);
+    text(`Score: ${score}`, 10, 40);
+    text(`Time: ${timeLeft}`, 10, 80);
+
+    if (gameOver) {
+      textAlign(CENTER);
+      textSize(64);
+      fill(0);
+      text('Game Over!', width/2, height/2);
+      text(`Final Score: ${score}`, width/2, height/2 + 70);
+      noLoop();
+    }
+  }
+
+  function mousePressed() {
+    if (!gameOver && gameStarted) {
+      let hitFly = false;
+      for (let fly of flies) {
+        if (fly.checkClick(mouseX, mouseY)) {
+          score++;
+          baseSpeed += 0.2;
+          flies.push(new Fly());
+
+          // Play squish sound
+          squishSynth.triggerAttackRelease("C4", "16n");
+
+          hitFly = true;
+          break;
+        }
+      }
+
+      if (!hitFly) {
+        // Play miss sound
+        missSynth.triggerAttackRelease("C3", "8n");
+      }
+    }
+  }
+
+  class Fly {
+    constructor() {
+      this.x = random(width);
+      this.y = random(height);
+      this.direction = random(TWO_PI);
+      this.speed = baseSpeed;
+      this.isSquished = false;
+      this.facingRight = true;
+    }
+
+    update() {
+      if (!this.isSquished) {
+        this.x += cos(this.direction) * this.speed;
+        this.y += sin(this.direction) * this.speed;
+
+        this.facingRight = cos(this.direction) > 0;
+
+        if (this.x < 0 || this.x > width) {
+          this.direction = PI - this.direction;
+          this.x = constrain(this.x, 0, width);
+        }
+        if (this.y < 0 || this.y > height) {
+          this.direction = -this.direction;
+          this.y = constrain(this.y, 0, height);
+        }
+
+        if (random(1) < 0.02) {
+          this.direction = random(TWO_PI);
+        }
+      }
+    }
+
+    display() {
+      push();
+      translate(this.x, this.y);
+
+      if (this.isSquished) {
+        scale(1, 0.3);
+        image(squishedImg, 0, 0, SPRITE_SIZE, SPRITE_SIZE);
+      } else {
+        if (!this.facingRight) {
+          scale(-1, 1);
+        }
+        image(flyGif, 0, 0, SPRITE_SIZE, SPRITE_SIZE);
+      }
+
+      pop();
+    }
+
+    checkClick(mx, my) {
+      let d = dist(mx, my, this.x, this.y);
+      if (d < SPRITE_SIZE/3 && !this.isSquished) {
+        this.isSquished = true;
+        return true;
+      }
+      return false;
+    }
+  }
+</script>
+</body>
+</html>
