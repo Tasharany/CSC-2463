@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bug Squish with Sound and Arduino</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+            display: block;
+            overflow-x: auto;
+        }
+        #startButton, #connectButton {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        #gameControls {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        #statusMessage {
+            margin-top: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+<div id="gameControls">
+    <button id="connectButton">Connect to Arduino</button>
+    <button id="startButton">Start Game</button>
+    <div id="statusMessage"></div>
+</div>
+<script>
+    let flies = [];
+    let flyGif;
+    let squishedImg;
+    const NUM_FLIES = 5;
+    const SPRITE_SIZE = 100;
+    let score = 0;
+    let timeLeft = 30;
+    let gameOver = false;
+    let lastSecond;
+    let baseSpeed = 3;
+    let gameStarted = false;
+
+    // Sound variables
+    let squishSynth;
+    let missSynth;
+    let bgMusic;
+    let gameOverSound;
+
+    // Arduino variables
+    let port;
+    let statusText = "";
+    let isConnected = false;
+    let cursorX = 400;
+    let cursorY = 300;
+
+    function preload() {
+        flyGif = loadImage('bug.gif');
+        squishedImg = loadImage('squished.png');
+    }
+
+    async function connectToArduino() {
+        try {
+            // Request a serial port
+            port = await navigator.serial.requestPort();
+
+            // Open the port with the same baudrate as Arduino
+            await port.open({ baudRate: 9600 });
+            statusText = "Connected to Arduino";
+            isConnected = true;
+            document.getElementById('statusMessage').textContent = statusText;
+
+            // Set up the reading loop
+            readSerialData();
+        } catch (error) {
+            statusText = "Connection failed: " + error.message;
+            document.getElementById('statusMessage').textContent = statusText;
+            console.error('Error connecting to Arduino:', error);
+        }
+    }
+
+    async function readSerialData() {
+        while (port && port.readable) {
+            const reader = port.readable.getReader();
+
+            try {
+                let buffer = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+
+                    if (done) {
+                        break;
+                    }
+
+                    // Convert the received bytes to string
+                    const textDecoder = new TextDecoder();
+                    const text = textDecoder.decode(value);
+                    buffer += text;
+
+                    // Process complete messages
+                    let lineBreakIndex;
+                    while ((lineBreakIndex = buffer.indexOf('\n')) !== -1) {
+                        const line = buffer.substring(0, lineBreakIndex).trim();
+                        buffer = buffer.substring(lineBreakIndex + 1);
+
+                        processMessage(line);
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading from serial port:', error);
+            } finally {
+                reader.releaseLock();
+            }
+        }
+    }
+
+    function processMessage(message) {
+        // Parse Arduino messages
+        if (message.startsWith("pos:")) {
+            // Format: "pos:x,y"
+            const coords = message.substring(4).split(',');
+            if (coords.length === 2) {
+                // Map Arduino joystick values (typically 0-1023) to canvas coordinates
+                cursorX = map(parseInt(coords[0]), 0, 1023, 0, width);
+                cursorY = map(parseInt(coords[1]), 0, 1023, 0, height);
+            }
+        } else if (message === "click") {
+            // Button press from Arduino
+            checkBugSquish(cursorX, cursorY);
+        }
+    }
+
+    async function sendToArduino(message) {
+        if (port && port.writable) {
+            const writer = port.writable.getWriter();
+            const encoder = new TextEncoder();
+            try {
+                await writer.write(encoder.encode(message + "\n"));
+            } catch (error) {
+                console.error('Error writing to serial port:', error);
+            } finally {
+                writer.releaseLock();
+            }
+        }
+    }
+
+    function setup() {
+        createCanvas(800, 600);
+        imageMode(CENTER);
+        background(220);
+        setupAudio();
+
+        // Setup buttons
+        const connectButton = document.getElementById('connectButton');
+        connectButton.addEventListener('click', connectToArduino);
+
+        const startButton = document.getElementById('startButton');
+        startButton.addEventListener('click', startGame);
+
+        noLoop(); // Don't start drawing until game starts
+    }
+
+    function setupAudio() {
+        // Squish sound - FM synthesis for a crunchy sound
+        squishSynth = new Tone.FMSynth({
+            harmonicity: 8,
+            modulationIndex: 20,
+            envelope: {
+                attack: 0.001,
+                decay: 0.2,
+                sustain: 0,
+                release: 0.1
+            },
+            modulation: {
+                type: "square"
+            },
+            modulationEnvelope: {
+                attack: 0.002,
+                decay: 0.2,
+                sustain: 0,
+                release: 0.2
+            }
+        }).toDestination();
+
+        // Miss sound - simple downward glissando
+        missSynth = new Tone.Synth({
+            oscillator: {
+                type: "triangle"
+            },
+            envelope: {
+                attack: 0.01,
+                decay: 0.3,
+                sustain: 0,
+                release: 0.1
+            }
+        }).toDestination();
+
+        // Background music setup
+        const reverb = new Tone.Reverb({
+            decay: 5,
+            wet: 0.5
+        }).toDestination();
+
+        bgMusic = new Tone.PolySynth().connect(reverb);
+
+        // Game over sound
+        gameOverSound = new Tone.Synth({
+            oscillator: {
+                type: "square"
+            },
+            envelope: {
+                attack: 0.01,
+                decay: 0.3,
+                sustain: 0.4,
+                release: 0.8
+            }
+        }).toDestination();
+
+        // Create a repeating background pattern
+        const pattern = new Tone.Pattern((time, note) => {
+            bgMusic.triggerAttackRelease(note, "8n", time);
+        }, ["C4", "E4", "G4", "B4"], "up");
+
+        pattern.interval = "8n";
+        pattern.start(0);
+    }
+
+    function startGame() {
+        if (!gameStarted && isConnected) {
+            Tone.start();
+            document.getElementById('gameControls').style.display = 'none';
+            gameStarted = true;
+
+            // Start game state
+            flies = [];
+            for (let i = 0; i < NUM_FLIES; i++) {
+                flies.push(new Fly());
+            }
+            score = 0;
+            timeLeft = 30;
+            gameOver = false;
+            lastSecond = millis();
+
+            // Start background music
+            Tone.Transport.start();
+
+            loop();
+        } else if (!isConnected) {
+            document.getElementById('statusMessage').textContent = "Please connect to Arduino first!";
+        }
+    }
+
+    function draw() {
+        background(220);
+
+        if (!gameOver && gameStarted) {
+            if (millis() - lastSecond >= 1000) {
+                timeLeft--;
+                lastSecond = millis();
+
+                // Increase tempo as time runs out
+                Tone.Transport.bpm.value = 120 + (30 - timeLeft) * 2;
+            }
+        }
+
+        if (timeLeft <= 0) {
+            gameOver = true;
+            handleGameOver();
+        }
+
+        for (let fly of flies) {
+            fly.update();
+            fly.display();
+        }
+
+        // Draw cursor position from Arduino
+        if (gameStarted && !gameOver) {
+            fill(255, 0, 0);
+            ellipse(cursorX, cursorY, 20, 20);
+        }
+
+        displayHUD();
+    }
+
+    function handleGameOver() {
+        // Stop background music
+        Tone.Transport.stop();
+
+        // Play game over sound
+        gameOverSound.triggerAttackRelease("C3", "1n");
+
+        // Send game over message to Arduino
+        sendToArduino("gameover");
+    }
+
+    function displayHUD() {
+        textSize(32);
+        fill(0);
+        text(`Score: ${score}`, 10, 40);
+        text(`Time: ${timeLeft}`, 10, 80);
+
+        if (gameOver) {
+            textAlign(CENTER);
+            textSize(64);
+            fill(0);
+            text('Game Over!', width/2, height/2);
+            text(`Final Score: ${score}`, width/2, height/2 + 70);
+            noLoop();
+        }
+    }
+
+    function checkBugSquish(x, y) {
+        if (!gameOver && gameStarted) {
+            let hitFly = false;
+            for (let fly of flies) {
+                if (fly.checkClick(x, y)) {
+                    score++;
+                    baseSpeed += 0.2;
+                    flies.push(new Fly());
+
+                    // Play squish sound
+                    squishSynth.triggerAttackRelease("C4", "16n");
+
+                    // Send buzz command to Arduino
+                    sendToArduino("buzz");
+
+                    hitFly = true;
+                    break;
+                }
+            }
+
+            if (!hitFly) {
+                // Play miss sound
+                missSynth.triggerAttackRelease("C3", "8n");
+            }
+        }
+    }
+
+    class Fly {
+        constructor() {
+            this.x = random(width);
+            this.y = random(height);
+            this.direction = random(TWO_PI);
+            this.speed = baseSpeed;
+            this.isSquished = false;
+            this.facingRight = true;
+        }
+
+        update() {
+            if (!this.isSquished) {
+                this.x += cos(this.direction) * this.speed;
+                this.y += sin(this.direction) * this.speed;
+
+                this.facingRight = cos(this.direction) > 0;
+
+                if (this.x < 0 || this.x > width) {
+                    this.direction = PI - this.direction;
+                    this.x = constrain(this.x, 0, width);
+                }
+                if (this.y < 0 || this.y > height) {
+                    this.direction = -this.direction;
+                    this.y = constrain(this.y, 0, height);
+                }
+
+                if (random(1) < 0.02) {
+                    this.direction = random(TWO_PI);
+                }
+            }
+        }
+
+        display() {
+            push();
+            translate(this.x, this.y);
+
+            if (this.isSquished) {
+                scale(1, 0.3);
+                image(squishedImg, 0, 0, SPRITE_SIZE, SPRITE_SIZE);
+            } else {
+                if (!this.facingRight) {
+                    scale(-1, 1);
+                }
+                image(flyGif, 0, 0, SPRITE_SIZE, SPRITE_SIZE);
+            }
+
+            pop();
+        }
+
+        checkClick(mx, my) {
+            let d = dist(mx, my, this.x, this.y);
+            if (d < SPRITE_SIZE/3 && !this.isSquished) {
+                this.isSquished = true;
+                return true;
+            }
+            return false;
+        }
+    }
+</script>
+</body>
+</html>
