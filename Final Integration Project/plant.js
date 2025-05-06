@@ -53,89 +53,141 @@ class Plant {
 
 
 
-
     initSound() {
         // Different synth setup based on plant type
         switch(this.type) {
-            case 0: // Bass plant
-
+            case 0: // Bass plants (Trees)
+                // Create a rich, deep bass sound
                 this.synth = new Tone.MonoSynth({
+                    oscillator: {
+                        type: "sine4" // Rich sine wave with harmonics
+                    },
+                    envelope: {
+                        attack: 0.2,
+                        decay: 0.3,
+                        sustain: 0.8,
+                        release: 1.5
+                    },
+                    filterEnvelope: {
+                        attack: 0.1,
+                        decay: 0.7,
+                        sustain: 0.2,
+                        release: 2.0,
+                        baseFrequency: 200,
+                        octaves: 2.5
+                    }
+                }).toDestination();
+
+                // Add effects for bass
+                this.filter = new Tone.Filter(400, "lowpass").toDestination();
+                this.synth.connect(this.filter);
+
+                // Deep, resonant notes for bass plants
+                this.notes = ["C2", "G2", "A#2", "D3", "F2", "A2"];
+                this.playInterval = 3500 + random(500); // Slower interval for bass
+                break;
+
+            case 1: // Melody plants (Flowers)
+                // Create a bright, bell-like sound
+                if (this.plantType === 3 || this.plantType === 4) { // Yellow or pink flowers
+                    // Use FMSynth for brighter tones
+                    this.synth = new Tone.FMSynth({
+                        harmonicity: 3,
+                        modulationIndex: 10,
+                        oscillator: {
+                            type: "sine"
+                        },
+                        envelope: {
+                            attack: 0.01,
+                            decay: 0.2,
+                            sustain: 0.2,
+                            release: 0.5
+                        },
+                        modulation: {
+                            type: "triangle"
+                        },
+                        modulationEnvelope: {
+                            attack: 0.2,
+                            decay: 0.01,
+                            sustain: 0.2,
+                            release: 0.5
+                        }
+                    }).toDestination();
+                } else {
+                    // Use AMSynth for other flowers
+                    this.synth = new Tone.AMSynth({
+                        harmonicity: 2,
+                        oscillator: {
+                            type: "triangle"
+                        },
+                        envelope: {
+                            attack: 0.03,
+                            decay: 0.3,
+                            sustain: 0.2,
+                            release: 0.6
+                        },
+                        modulation: {
+                            type: "square"
+                        },
+                        modulationEnvelope: {
+                            attack: 0.01,
+                            decay: 0.5,
+                            sustain: 0.2,
+                            release: 0.1
+                        }
+                    }).toDestination();
+                }
+
+                // Add effects for melody
+                this.delay = new Tone.FeedbackDelay("8n", 0.3).toDestination();
+                this.synth.connect(this.delay);
+
+                // Higher, melodic notes
+                this.notes = ["E4", "G4", "B4", "C5", "D5", "F#5", "A5"];
+                this.playInterval = 2000 + random(500); // Medium interval for melody
+                break;
+
+            case 2: // Harmony plants (Small plants/herbs)
+                // Create chord-like sounds
+                this.synth = new Tone.PolySynth(Tone.Synth, {
                     oscillator: {
                         type: "sine"
                     },
                     envelope: {
-                        attack: 0.1,
-                        decay: 0.3,
-                        sustain: 0.4,
-                        release: 0.8
-                    },
-                    filterEnvelope: {
-                        attack: 0.01,
-                        decay: 0.7,
-                        sustain: 0.1,
-                        release: 0.8,
-                        baseFrequency: 300,
-                        octaves: 4
-                    }
-                }).toDestination();
-
-                // Add effects
-                this.filter = new Tone.Filter(800, "lowpass").toDestination();
-                this.synth.connect(this.filter);
-
-                // Notes in the key of C for bass plants (lower octave)
-                this.notes = ["C2", "E2", "G2", "A2", "C3"];
-                break;
-
-            case 1: // Melody plant
-                this.synth = new Tone.FMSynth({
-                    harmonicity: 3,
-                    modulationIndex: 10,
-                    oscillator: {
-                        type: "triangle"
-                    },
-                    envelope: {
-                        attack: 0.01,
-                        decay: 0.2,
-                        sustain: 0.2,
-                        release: 0.3
-                    },
-                    modulation: {
-                        type: "square"
-                    },
-                    modulationEnvelope: {
-                        attack: 0.5,
+                        attack: 0.05,
                         decay: 0.1,
-                        sustain: 0.2,
-                        release: 0.5
+                        sustain: 0.3,
+                        release: 1.0
                     }
                 }).toDestination();
 
-                // Add reverb effect
+                // Add effects for harmony
                 this.reverb = new Tone.Reverb(1.5).toDestination();
                 this.synth.connect(this.reverb);
 
-                // Notes in the key of C for melody plants (middle octave)
-                this.notes = ["C4", "D4", "E4", "G4", "A4", "C5"];
-                break;
-
-            case 2: // Harmony plant
-                this.synth = new Tone.PolySynth(Tone.AMSynth).toDestination();
-
-                // Add chorus effect
-                this.chorus = new Tone.Chorus(4, 2.5, 0.5).toDestination();
-                this.synth.connect(this.chorus);
-
-                // Chord notes in the key of C
-                this.notes = [
-                    ["C3", "E3", "G3"], // C major
-                    ["A2", "C3", "E3"], // A minor
-                    ["F3", "A3", "C4"], // F major
-                    ["G3", "B3", "D4"]  // G major
-                ];
+                // Middle-range notes for harmony plants
+                this.notes = ["A3", "C4", "E4", "G3", "B3", "D4"];
+                this.playInterval = 2800 + random(400); // Variable interval for harmony
                 break;
         }
+
+        // Adjust volume based on plant type
+        switch(this.type) {
+            case 0: // Bass plants are a bit louder
+                this.volume = -24;
+                break;
+            case 1: // Melody plants are medium volume
+                this.volume = -15;
+                break;
+            case 2: // Harmony plants are softer
+                this.volume = -18;
+                break;
+        }
+
+        // Set the volume
+        this.synth.volume.value = this.volume;
     }
+
 
     grow(moisture, light) {
         // Update growth based on environmental conditions
@@ -238,74 +290,63 @@ class Plant {
             y: (basePosition.row + rowOffset) * SPRITE_SIZE
         };
     }
-
     playSound() {
-        if (!Tone.Transport.state === "started") return;
+        // Only play if enough time has passed
+        if (millis() - this.lastPlayedTime > this.playInterval) {
+            // Get a random note from the plant's available notes
+            let note = this.notes[floor(random(this.notes.length))];
 
-        let currentTime = millis();
-        // Play sound based on growth stage and health
-        if (currentTime - this.lastPlayedTime > this.playInterval) {
-            this.lastPlayedTime = currentTime;
+            // Modify note based on health and growth
+            let detune = map(this.health, 0, 100, -200, 200);
 
-            // Adjust volume based on health
-            let volume = map(this.health, 0, 100, -30, -15);
-            this.synth.volume.value = volume;
+            // Different sound behaviors based on plant type
+            switch(this.type) {
+                case 0: // Bass plants
+                        // Bass plants play single low notes
+                    this.synth.triggerAttackRelease(note, "2n");
+                    break;
 
-            // Plants make sound only when they reach a certain growth stage
-            if (this.growthStage > 1) {
-                // Select note based on growth stage
-                let noteIndex = floor(map(this.growthStage, 1, this.maxGrowthStage, 0, this.notes.length - 1));
+                case 1: // Melody plants
+                        // Melody plants play single notes with longer decay
+                    if (this.health > 70) {
+                        // Healthy melody plants might play two notes in sequence
+                        this.synth.triggerAttackRelease(note, "8n");
 
-                // Play different patterns based on plant type
-                switch(this.type) {
-                    case 0: // Bass plant - single notes
-                        this.synth.triggerAttackRelease(
-                            this.notes[noteIndex],
-                            "8n"
-                        );
-                        break;
-
-                    case 1: // Melody plant - sequence of notes
-                        if (this.growthStage > 2) {
-                            // More complex pattern for mature plants
-                            this.synth.triggerAttackRelease(
-                                this.notes[noteIndex],
-                                "16n"
-                            );
-                            // Schedule another note
+                        // Sometimes play a second note after a delay
+                        if (random() < 0.3) {
                             setTimeout(() => {
-                                let nextIndex = (noteIndex + 2) % this.notes.length;
-                                this.synth.triggerAttackRelease(
-                                    this.notes[nextIndex],
-                                    "8n"
-                                );
-                            }, 200);
-                        } else {
-                            // Simple pattern for young plants
-                            this.synth.triggerAttackRelease(
-                                this.notes[noteIndex],
-                                "8n"
-                            );
+                                let secondNote = this.notes[floor(random(this.notes.length))];
+                                this.synth.triggerAttackRelease(secondNote, "8n");
+                            }, 150 + random(100));
                         }
-                        break;
+                    } else {
+                        this.synth.triggerAttackRelease(note, "8n");
+                    }
+                    break;
 
-                    case 2: // Harmony plant - chords
-                        // Play chord
-                        this.synth.triggerAttackRelease(
-                            this.notes[noteIndex],
-                            "2n"
-                        );
-                        break;
-                }
-
-                // Modulate filter cutoff based on light for bass plants
-                if (this.type === 0 && this.filter) {
-                    let cutoff = map(light, 0, 1023, 200, 2000);
-                    this.filter.frequency.rampTo(cutoff, 0.5);
-                }
+                case 2: // Harmony plants
+                        // Harmony plants can play chords
+                    if (random() < 0.7 || this.health < 50) {
+                        // Most of the time, play a single note
+                        this.synth.triggerAttackRelease(note, "4n");
+                    } else {
+                        // Sometimes play a chord
+                        let chordType = random() < 0.5 ? "4" : "M"; // Minor or major
+                        let chordRoot = this.notes[floor(random(this.notes.length))];
+                        this.synth.triggerAttackRelease([
+                            chordRoot,
+                            Tone.Frequency(chordRoot).transpose(chordType === "4" ? 3 : 4).toNote(),
+                            Tone.Frequency(chordRoot).transpose(7).toNote()
+                        ], "4n");
+                    }
+                    break;
             }
+
+            // Update the last played time
+            this.lastPlayedTime = millis();
         }
     }
+
 
     display() {
         push();

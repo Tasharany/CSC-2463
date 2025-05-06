@@ -4,7 +4,9 @@
 // UI Panel properties
 let uiPanelHeight = 70;
 let uiPanelColor;
-let infoBoxColor;
+let infoBoxColor
+
+
 
 // Garden variables
 let plants = [];
@@ -279,6 +281,26 @@ function drawEnhancedUI(moisture, light) {
 
     // Garden Stats Panel - Top right
     drawGardenStatsPanel(width - 300, 10, 280, uiPanelHeight - 20, moisture, light);
+    // Add reset garden button
+    push();
+    rectMode(CENTER);
+    fill(150, 20, 20);
+    rect(width/2, 30, 120, 30, 5);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(12);
+    text("Reset Garden", width/2, 30);
+    pop();
+
+    // Update reset button hit detection to the center position
+    if (mouseIsPressed &&
+        mouseX > width/2 - 60 &&
+        mouseX < width/2 + 60 &&
+        mouseY > 15 &&
+        mouseY < 45) {
+        resetGarden();
+    }
+
 
     // Bottom panel
     fill(uiPanelColor);
@@ -648,32 +670,30 @@ function addNewPlant(moisture, light, forceDiversity = false) {
     // Return the plant that was added
     return newPlant;
 }
+// Add this function to reset the garden
+function resetGarden() {
+    // Clear all plants
+    plants = [];
+
+    // Reset garden health
+    gardenHealth = 100;
+
+    // Stop all active sounds
+    Tone.Transport.stop();
+    setTimeout(() => {
+        // Restart the audio context after a brief pause
+        Tone.Transport.start();
+    }, 500);
+}
+
+
 
 // Update the initial plant creation in startGarden() function
 function startGarden() {
     currentScene = "garden";
-
-    // Reset plant tracking
+    // Reset plants array to empty
     plants = [];
 
-    // Start with one of each plant type, well-spaced
-    let positions = [
-        width * 0.25,
-        width * 0.5,
-        width * 0.75
-    ];
-
-    // Create a bass plant (tree)
-    let bassPlant = new Plant(positions[0], height * 0.75 + random(-30, 30), 0);
-    plants.push(bassPlant);
-
-    // Create a melody plant (flower)
-    let melodyPlant = new Plant(positions[1], height * 0.75 + random(-30, 30), 1);
-    plants.push(melodyPlant);
-
-    // Create a harmony plant (herb/small plant)
-    let harmonyPlant = new Plant(positions[2], height * 0.75 + random(-30, 30), 2);
-    plants.push(harmonyPlant);
 
     // Start the audio
     if (Tone.context.state !== "running") {
@@ -767,8 +787,10 @@ function mouseDragged() {
         updateSkyGradient(light);
     }
 }
+let justChangedScene = false;
 
 function mousePressed() {
+
     // Only allow planting in garden mode and if not connected to Arduino
     if (currentScene === "garden" && !getConnectionStatus().isConnected) {
         // Get current sensor values
