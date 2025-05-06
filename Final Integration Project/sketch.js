@@ -7,7 +7,7 @@ let uiPanelColor;
 let infoBoxColor
 
 
-
+qw
 // Garden variables
 let plants = [];
 let soil;
