@@ -1,4 +1,4 @@
-[ Rhythm Garden ]
+[ Rhythm Garden Documentation ]
 
 ![Welcome Screen](https://github.com/user-attachments/assets/57ebd82f-b070-4791-a1cf-5bbc1dcbcbd8)
 
@@ -139,7 +139,7 @@ The physical computing aspect grounds the digital experience in the real world, 
 
  Project Credits
 
-Rhythm Garden was developed as part of [Course/Context] at [Institution/Organization].
+Rhythm Garden was developed as part of [CSC 2463] at [LSU].
 
 Assets:
 - Sound synthesis using Tone.js library
